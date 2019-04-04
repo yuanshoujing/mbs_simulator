@@ -6,17 +6,21 @@
   "license": "GPL-3.0-or-later",
   "private": true,
   "scripts": {
-    "build": "rimraf dist && rollup -c"
+    "build": "rimraf dist && webpack --progress --colors"
   },
   "devDependencies": {
     "@babel/core": "^7.4.0",
+    "@babel/preset-env": "^7.4.3",
+    "babel-loader": "^8.0.5",
     "rimraf": "^2.6.3",
-    "rollup": "^1.7.3",
-    "rollup-plugin-babel": "^4.3.2",
-    "rollup-plugin-node-resolve": "^4.0.1",
-    "standard": "^12.0.1"
+    "standard": "^12.0.1",
+    "webpack": "^4.29.6",
+    "webpack-cli": "^3.3.0"
   },
   "dependencies": {
-    "winston": "^3.2.1"
+    "crc": "^3.8.0",
+    "lodash": "^4.17.11",
+    "loglevel": "^1.6.1",
+    "random-js": "^2.0.0"
   }
 }

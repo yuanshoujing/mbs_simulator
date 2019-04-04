@@ -1,5 +1,5 @@
 import net from 'net'
-import logger from './logger'
+import * as log from 'loglevel'
 
 export default class MbsClient {
   constructor (host, port, timeout = 3000) {
@@ -38,40 +38,40 @@ export default class MbsClient {
   }
 
   onConnect () {
-    logger.info('连接到服务器成功！', this.channel.remoteAddress)
+    log.info('连接到服务器成功！', this.channel.remoteAddress)
   }
 
   onData (data) {
-    logger.info('收到数据：', data)
+    log.info('收到数据：', data)
   }
 
   onDrain () {
-    logger.info('drain')
+    log.info('drain')
   }
 
   onEnd () {
-    logger.info('end')
+    log.info('end')
   }
 
   onError (err) {
-    logger.info('error: ', err)
+    log.info('error: ', err)
   }
 
   onLookup (err, address, family, host) {
-    logger.info('lookup: ', {
+    log.info('lookup: ', {
       err, address, family, host
     })
   }
 
   onReady () {
-    logger.info('ready')
+    log.info('ready')
   }
 
   onTimeout () {
-    logger.info('超时')
+    log.info('超时')
   }
 
   onClose () {
-    logger.info('close')
+    log.info('close')
   }
 }
