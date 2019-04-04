@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "src/main.js",
   "author": "袁首京<yuanshoujing@gmail.com>",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "private": true,
   "scripts": {
     "build": "rimraf dist && rollup -c"
