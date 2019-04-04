@@ -75,25 +75,3 @@ export default class MbsClient {
     logger.info('close')
   }
 }
-
-// const client = net.connect({
-//   port: 40660
-// //   host: '192.168.100.151'
-// }, () => {
-//   logger.info('--> 连接到服务器')
-//   console.log('连接到服务器')
-// })
-
-// client.on('data', (data) => {
-//   console.log(data.toString())
-// })
-
-// client.on('error', (err) => {
-//   console.log(err)
-// })
-
-// client.on('end', () => {
-//   console.log('断开连接')
-// })
-
-// export default client
