@@ -42,7 +42,7 @@ export default class MbsClient {
   }
 
   onData (data) {
-    log.info('收到数据：', data)
+    log.info('收到数据：', data.toString('hex'))
   }
 
   onDrain () {

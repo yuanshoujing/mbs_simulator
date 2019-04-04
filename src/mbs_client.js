@@ -36,8 +36,8 @@ export default class MbsClient extends Client {
       new Date().getTime() + '000   ' + crcCode
 
     s = 'S>' + s + m + '<E'
-
     log.info('--> pack(): ' + s)
+    return s
   }
 
   unpack () {
