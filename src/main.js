@@ -9,3 +9,4 @@ client.connect()
 
 client.sn()
 client.pack(1, { a: 1 })
+client.login()

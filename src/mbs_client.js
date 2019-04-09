@@ -14,6 +14,7 @@ export default class MbsClient extends Client {
 
     this.sender = 'mbssim'
     this.receiver = 'yl0001'
+    this.id = random.string(16)
 
     this.login = this.login.bind(this)
   }
@@ -44,10 +45,13 @@ export default class MbsClient extends Client {
 
   }
 
-  login (id) {
+  login () {
     let msg = {
-      id: id,
+      id: this.id,
       state: 1
     }
+
+    let s = this.pack(100, msg)
+    this.channel.write(s)
   }
 }
