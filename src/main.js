@@ -9,4 +9,8 @@ client.connect()
 
 client.sn()
 client.pack(1, { a: 1 })
-client.login()
+for (let i = 0; i < 10; i++) {
+  setTimeout(() => {
+    client.login()
+  }, 1000)
+}
