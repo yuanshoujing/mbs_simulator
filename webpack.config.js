@@ -5,6 +5,8 @@ module.exports = {
 
   entry: './src/main.js',
 
+  devtool: 'inline-source-map',
+
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist')
@@ -18,5 +20,7 @@ module.exports = {
     }]
   },
 
-  target: 'node'
+  target: 'node',
+
+  watch: true
 }
