@@ -9,5 +9,5 @@ client.id = 'LDZN00010001'
 client.connect()
 
 setTimeout(() => {
-  client.verifyCard()
+  client.verifyCard('11111111', 0)
 }, 5000)

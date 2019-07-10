@@ -16,7 +16,7 @@ export default class MbsClient extends Client {
     this.receiver = 'YL0001'
     this.id = random.string(16)
 
-    this.logined = false
+    this.quantity = [0, 0] // 已充电度数
     this.login = this.login.bind(this)
   }
 
@@ -31,11 +31,13 @@ export default class MbsClient extends Client {
     return result
   }
 
-  pack (srvcode, msg) {
+  pack (srvcode, msg, responseCode = 0, _sn = null) {
     let m = JSON.stringify(msg)
+    let rcode = responseCode > 0 ? responseCode : '   '
     let crcCode = crc32(m).toString(16)
-    let s = this.sn() + _.padStart(srvcode, 4) + this.receiver + this.sender +
-      new Date().getTime() + '000   ' + crcCode
+    _sn = _sn || this.sn()
+    let s = _sn + _.padStart(srvcode, 4) + this.receiver + this.sender +
+      new Date().getTime() + '000' + rcode + crcCode
 
     s = 'S>' + s + m + '<E'
     // log.info('--> pack(): ' + s)
@@ -52,15 +54,22 @@ export default class MbsClient extends Client {
     let encrypted = parseInt(_.trim(d.substr(39, 1))) === 1
     let compressed = parseInt(_.trim(d.substr(40, 1))) === 1
     let priority = parseInt(_.trim(d.substr(41, 1)))
-    let responseCode = parseInt(_.trim(d.substr(42, 3)))
+
+    let rcodeStr = _.trim(d.substr(42, 3))
+    let responseCode = 0
+    if (rcodeStr) {
+      responseCode = parseInt(rcodeStr)
+    }
+
     let checkCode = _.trim(d.substr(45, 8))
+
     let body = JSON.parse(_.trim(d.substring(53, d.length - 2)))
     return {
       sn, srvCode, receiver, sender, time, encrypted, compressed, priority, responseCode, checkCode, body
     }
   }
 
-  onConnect () {
+  onReady () {
     this.login()
   }
 
@@ -105,12 +114,13 @@ export default class MbsClient extends Client {
       this.logined = true
       log.info('--> 登录成功')
     } else {
+      this.logined = false
       log.info('--> 登录失败：', msg)
     }
   }
 
   heartbeat () {
-    log.info('--> 发送心跳...')
+    // log.info('--> 发送心跳...')
     let msg = {
       id: this.id
     }
@@ -120,15 +130,20 @@ export default class MbsClient extends Client {
   }
 
   onHeartbeat (msg) {
-    log.info('--> 心跳成功')
+    // log.info('--> 心跳成功')
   }
 
-  verifyCard () {
+  verifyCard (cardNo, channel) {
+    if (!this.logined) {
+      log.info('--> 尚未登录')
+      return
+    }
+
     log.info('--> 模拟刷卡...')
     let msg = this.pack(104, {
       id: this.id,
-      channel: 0,
-      card: '11111111'
+      channel: channel,
+      card: cardNo
     })
     this.channel.write(msg)
   }
@@ -142,6 +157,30 @@ export default class MbsClient extends Client {
   }
 
   onOpen (msg) {
+    // log.info('--> 开桩指令：', msg)
+    let resp = this.pack(102, {
+      id: this.id
+    }, 200, msg.sn)
+    this.channel.write(resp)
 
+    log.info('--> 开桩成功，开始模拟充电...')
+
+  }
+
+  charging (channel, user) {
+    let q = this.quantity[channel] + _.random(1.9)
+    let over = q >= 5 ? 1 : 0
+
+    let msg = this.pack(101, {
+      id: this.id,
+      channel: channel,
+      user: user,
+      quantity: q,
+      over: over
+    })
+
+    this.quantity[channel] = q
+
+    this.channel.write(msg)
   }
 }
