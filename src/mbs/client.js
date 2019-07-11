@@ -17,7 +17,6 @@ export default class MbsClient extends Client {
     this.id = random.string(16)
 
     this.quantity = [0, 0] // 已充电度数
-    this.login = this.login.bind(this)
   }
 
   sn () {
@@ -37,7 +36,7 @@ export default class MbsClient extends Client {
     let crcCode = crc32(m).toString(16)
     _sn = _sn || this.sn()
     let s = _sn + _.padStart(srvcode, 4) + this.receiver + this.sender +
-      new Date().getTime() + '000' + rcode + crcCode
+      new Date().getTime() + '000' + rcode + _.padStart(crcCode, 8)
 
     s = 'S>' + s + m + '<E'
     // log.info('--> pack(): ' + s)
@@ -84,7 +83,12 @@ export default class MbsClient extends Client {
         this.onlogin(d)
         break
       case 102:
-        this.onOpen(d)
+        if (d.body.state === 0) {
+          this.close(d)
+        }
+        else {
+          this.onOpen(d)
+        }
         break
       case 104:
         this.onVerifyCard(d)
@@ -156,6 +160,11 @@ export default class MbsClient extends Client {
     }
   }
 
+  close (msg) {
+    log.info('--> 服务端已结算')
+    process.exit()
+  }
+
   onOpen (msg) {
     // log.info('--> 开桩指令：', msg)
     let resp = this.pack(102, {
@@ -164,11 +173,16 @@ export default class MbsClient extends Client {
     this.channel.write(resp)
 
     log.info('--> 开桩成功，开始模拟充电...')
-
+    this.loop = setInterval(() => {
+      this.charging(msg.body.channel, msg.body.user)
+    }, 5000)
   }
 
   charging (channel, user) {
-    let q = this.quantity[channel] + _.random(1.9)
+    let offset = _.random(0, 1.9)
+    let q = parseFloat(this.quantity[channel].toString()) + parseFloat(offset.toString())
+    q = q.toFixed(2)
+
     let over = q >= 5 ? 1 : 0
 
     let msg = this.pack(101, {
@@ -181,6 +195,12 @@ export default class MbsClient extends Client {
 
     this.quantity[channel] = q
 
+    log.info('--> 上报充电信息：', msg)
     this.channel.write(msg)
+
+    if (over) {
+      clearInterval(this.loop)
+      log.info('--> 充电已结束')
+    }
   }
 }
