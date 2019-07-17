@@ -85,8 +85,7 @@ export default class MbsClient extends Client {
       case 102:
         if (d.body.state === 0) {
           this.close(d)
-        }
-        else {
+        } else {
           this.onOpen(d)
         }
         break
@@ -133,6 +132,27 @@ export default class MbsClient extends Client {
     this.channel.write(s)
   }
 
+  report () {
+    if (this.device_port === undefined) {
+      return
+    }
+
+    let state = 1
+    let num = parseInt(_.random(0, 9).toString())
+    if (num % 3 === 0) {
+      state = 2
+    }
+
+    let msg = this.pack(103, {
+      id: this.id,
+      channel: this.device_port,
+      state: state
+    })
+
+    log.info('--> 上报状态：', msg)
+    this.channel.write(msg)
+  }
+
   onHeartbeat (msg) {
     // log.info('--> 心跳成功')
   }
@@ -144,6 +164,7 @@ export default class MbsClient extends Client {
     }
 
     log.info('--> 模拟刷卡...')
+    this.device_port = channel
     let msg = this.pack(104, {
       id: this.id,
       channel: channel,
@@ -174,6 +195,9 @@ export default class MbsClient extends Client {
 
     log.info('--> 开桩成功，开始模拟充电...')
     this.loop = setInterval(() => {
+      _.delay(() => {
+        this.report()
+      }, 600)
       this.charging(msg.body.channel, msg.body.user)
     }, 5000)
   }
