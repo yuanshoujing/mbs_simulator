@@ -87,7 +87,7 @@ const schema = {
   },
   37: { // 服务器返回
     record_lens: [1, 1, 1, 8, 1],
-    stringIdx: [3, 4],
+    stringIdx: [3],
     channelIdx: 1
   },
 

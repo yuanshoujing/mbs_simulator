@@ -8,12 +8,7 @@ export default class QianGuClient extends Client {
   constructor (host, port, timeout = 5000) {
     super(host, port, timeout)
 
-    this.sender = 'QG0001'
-    this.receiver = 'YL0001'
     this.id = '1371000020100001'
-    this.channelNum = 2
-
-    this.quantity = [0, 0] // 已充电度数
   }
 
   pack (srvcode, body) {
@@ -99,14 +94,20 @@ export default class QianGuClient extends Client {
       case 2:
         this.onlogin(d)
         break
+      case 31:
+        this.onVerifyCard(d)
+        break
+      case 37:
+        this.onStop(d)
+        break
       case 40:
         this.onOpen(d)
         break
       case 42:
         this.atClose(d)
         break
-      case 31:
-        this.onVerifyCard(d)
+      case 61:
+        this.onFinish(d)
         break
     }
   }
@@ -173,8 +174,10 @@ export default class QianGuClient extends Client {
     }
 
     log.info('--> 模拟刷卡...')
-    this.device_port = channel
-    this.cardNo = cardNo
+    this.bill = {
+      port: channel,
+      cardNo
+    }
 
     let body = '03' + _.padStart(channel, 2, '0') +
       '00' + _.padStart(cardNo, 16, '0') + '00123456'
@@ -185,22 +188,74 @@ export default class QianGuClient extends Client {
   onVerifyCard (msg) {
     let balance = msg.body[4]
     let state = msg.body[5]
+
+    this.bill = _.extend(this.bill, {
+      balance
+    })
+
     if (state > 0) {
-      log.info('--> 刷卡成功，卡内余额为：', balance)
+      log.info(`--> 刷卡成功，卡内余额为：${balance / 100} 元`)
     } else {
       log.info('--> 刷卡失败')
     }
   }
 
   atClose (msg) {
-    log.info('--> 服务端已结算')
-    process.exit()
+    log.info('--> 服务端请求关桩，关桩，退出程序')
+
+    let body = '03' + _.padStart(this.bill.port, 2, '0') +
+      '00' + _.padStart(this.bill.cardNo, 16, '0') + 'ff00'
+
+    let resp = this.pack(60, body)
+    this.channel.write(resp)
+
+    _.delay(() => {
+      log.info('--> 本次充电结束')
+      process.exit()
+    }, 200)
   }
 
   onOpen (msg) {
-    log.info('--> 开桩指令：', msg)
+    log.debug('--> 开桩指令：', msg)
 
-    let respBody = '03' + _.padStart(this.device_port, 2, '0') +
+    const buf = Buffer.alloc(4)
+    let today = new Date()
+
+    buf.writeInt32BE(today.getFullYear(), 0)
+    let year = buf.toString('hex').substring(4)
+
+    buf.writeInt32BE(today.getMonth() + 1, 0)
+    let month = buf.toString('hex').substring(6)
+
+    buf.writeInt32BE(today.getDate(), 0)
+    let day = buf.toString('hex').substring(6)
+
+    buf.writeInt32BE(today.getHours(), 0)
+    let hour = buf.toString('hex').substring(6)
+
+    buf.writeInt32BE(today.getMinutes(), 0)
+    let minute = buf.toString('hex').substring(6)
+
+    buf.writeInt32BE(today.getSeconds(), 0)
+    let second = buf.toString('hex').substring(6)
+
+    buf.writeInt32BE(123456, 0)
+    let squantity = buf.toString('hex')
+
+    this.bill = _.extend(this.bill, {
+      sn: msg.body[4],
+      quantity: 0,
+      squantity: squantity,
+      sYear: year,
+      sMonth: month,
+      sDay: day,
+      sHour: hour,
+      sMinute: minute,
+      sSecond: second
+    })
+    log.debug('--> this.bill: ', this.bill)
+
+    let respBody = '03' + _.padStart(this.bill.port, 2, '0') +
       '00' + _.padStart(this.cardNo, 16, '0') + '00ff00'
     let resp = this.pack(41, respBody)
     this.channel.write(resp)
@@ -211,58 +266,36 @@ export default class QianGuClient extends Client {
         // _.delay(() => {
         //   this.report()
         // }, 600)
-        this.charging(this.device_port, msg.body[3])
+        this.charging()
       }, 5000)
     }, 2000)
   }
 
-  charging (channel, user) {
+  charging () {
     let offset = _.random(0, 10)
-    let q = parseInt(this.quantity[channel].toString()) + parseInt(offset.toString())
-    this.quantity[channel] = q
+    let q = parseInt(this.bill.quantity.toString()) + parseInt(offset.toString())
+    this.bill.quantity = q
 
     const buf = Buffer.alloc(4)
-    buf.writeInt32BE(123456, 0)
-    let squantity = buf.toString('hex')
 
     buf.writeInt32BE(123456 + q, 0)
-    let equantity = buf.toString('hex')
+    this.bill.equantity = buf.toString('hex')
 
     buf.writeInt32BE(q, 0)
     let quan = buf.toString('hex')
 
     let socint = parseInt((q / 30 * 100).toString())
+    socint = socint > 100 ? 100 : socint
     buf.writeInt32BE(socint)
-    let soc = buf.toString('hex').substr(7, 2)
+    this.bill.soc = buf.toString('hex').substr(7, 2)
 
-    if (!this.today) {
-      this.today = new Date()
-    }
+    let body = ('03' + _.padStart(this.bill.port, 2, '0') +
+      '00' + _.padStart(this.bill.cardNo, 16, '0') + '00' + this.bill.squantity + this.bill.equantity + quan +
+      '00002710 000003e8 00002328 00000bb8 000003ea 0000012c' + this.bill.sYear + this.bill.sMonth +
+      this.bill.sDay + this.bill.sHour + this.bill.sMinute + this.bill.sSecond +
+      '02 1e 00c8 01 01 01 00' + this.bill.soc + '07e6 07e6 01 01 00c8 01').replace(/\s/g, '')
 
-    buf.writeInt32BE(this.today.getFullYear(), 0)
-    let year = buf.toString('hex').substr(5, 4)
-
-    buf.writeInt32BE(this.today.getMonth() + 1, 0)
-    let month = buf.toString('hex').substr(7, 2)
-
-    buf.writeInt32BE(this.today.getDate(), 0)
-    let day = buf.toString('hex').substr(7, 2)
-
-    buf.writeInt32BE(this.today.getHours(), 0)
-    let hour = buf.toString('hex').substr(7, 2)
-
-    buf.writeInt32BE(this.today.getMinutes(), 0)
-    let minute = buf.toString('hex').substr(7, 2)
-
-    buf.writeInt32BE(this.today.getSeconds(), 0)
-    let second = buf.toString('hex').substr(7, 2)
-
-    let body = ('03' + _.padStart(this.device_port, 2, '0') +
-      '00' + _.padStart(this.cardNo, 16, '0') + '00' + squantity + equantity + quan +
-      '00002710 000003e8 00002328 00000bb8 000003ea 0000012c' + year + month + day + hour + minute + second +
-      '02 1e 00c8 01 01 01 00' + soc + '07e6 07e6 01 01 00c8 01').replace(/\s/g, '')
-
-    log.info('--> 上报充电信息：', body)
+    log.info(`--> 上报充电信息：已充 ${q / 100} kwh，电池 ${socint}%`)
 
     let msg = this.pack(34, body)
     this.channel.write(msg)
@@ -270,8 +303,44 @@ export default class QianGuClient extends Client {
     if (socint >= 100) {
       clearInterval(this.loop)
 
-      // TODO 发送 36 指令
-      log.info('--> 充电已结束')
+      log.info('--> 已充满，请求终止充电')
+      this.stop()
     }
+  }
+
+  stop () {
+    let body = '03' + _.padStart(this.bill.port, 2, '0') +
+      '00' + _.padStart(this.bill.cardNo, 16, '0') + '0001000000000000'
+
+    let msg = this.pack(36, body)
+    this.channel.write(msg)
+  }
+
+  onStop (msg) {
+    log.info('--> 服务端确认终止充电')
+    this.finish()
+  }
+
+  finish () {
+    log.debug('--> this.bill: ', this.bill)
+    const buf = Buffer.alloc(4)
+    buf.writeInt32BE(this.bill.quantity, 0)
+    let quan = buf.toString('hex')
+
+    let t = `${this.bill.sYear}${this.bill.sMonth}${this.bill.sDay}${this.bill.sHour}${this.bill.sMinute}${this.bill.sSecond}`
+
+    let body = ('03' + _.padStart(this.bill.port, 2, '0') +
+      '00' + _.padStart(this.bill.cardNo, 16, '0') + this.bill.sn + '01' + t + t +
+      '05 0a ' + this.bill.squantity + this.bill.equantity + quan + '00002710 000003e8 00 00 64 00').replace(/\s/g, '')
+    log.debug('--> 60: ', body)
+
+    log.info(`--> 上报结算信息：已充 ${this.bill.quantity / 100} kwh`)
+    let msg = this.pack(60, body)
+    this.channel.write(msg)
+  }
+
+  onFinish (msg) {
+    log.info('--> 服务端已结算，本次充电结束')
+    process.exit()
   }
 }
