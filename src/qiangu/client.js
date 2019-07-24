@@ -118,6 +118,11 @@ export default class QianGuClient extends Client {
     }
   }
 
+  onClose () {
+    log.info('close')
+    clearInterval(this.loop)
+  }
+
   login () {
     log.info('--> 开始登录...')
     let body = '03020006'
@@ -147,23 +152,9 @@ export default class QianGuClient extends Client {
   }
 
   report () {
-    if (this.device_port === undefined) {
-      return
-    }
+    let body = '03 02 0258 00 00000000 01 00 01 00 00003039 00003039'.replace(/\s/g, '')
 
-    let state = 1
-    let num = parseInt(_.random(0, 9).toString())
-    if (num % 3 === 0) {
-      state = 2
-    }
-
-    let msg = this.pack(103, {
-      id: this.id,
-      channel: this.device_port,
-      state: state
-    })
-
-    log.info('--> 上报状态：', msg)
+    let msg = this.pack(5, body)
     this.channel.write(msg)
   }
 
@@ -206,7 +197,7 @@ export default class QianGuClient extends Client {
     let body = '03' + _.padStart(this.bill.port, 2, '0') +
       '00' + _.padStart(this.bill.cardNo, 16, '0') + 'ff00'
 
-    let resp = this.pack(60, body)
+    let resp = this.pack(43, body)
     this.channel.write(resp)
 
     _.delay(() => {
@@ -263,9 +254,9 @@ export default class QianGuClient extends Client {
     log.info('--> 开桩成功，开始模拟充电...')
     _.delay(() => {
       this.loop = setInterval(() => {
-        // _.delay(() => {
-        //   this.report()
-        // }, 600)
+        _.delay(() => {
+          this.report()
+        }, 600)
         this.charging()
       }, 5000)
     }, 2000)
@@ -341,6 +332,6 @@ export default class QianGuClient extends Client {
 
   onFinish (msg) {
     log.info('--> 服务端已结算，本次充电结束')
-    process.exit()
+    // process.exit()
   }
 }
